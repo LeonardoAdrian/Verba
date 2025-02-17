@@ -5,6 +5,7 @@ import io
 
 import aiohttp
 from wasabi import msg
+import asyncio
 
 from goldenverba.components.interfaces import Embedding
 from goldenverba.components.types import InputConfig
@@ -77,7 +78,51 @@ class AzureOpenAIEmbedder(Embedding):
         }
         payload = {"input": content}
 
+        async with aiohttp.ClientSession() as session:
+            delay = 2  # Tiempo inicial de espera en segundos
+            max_retries = 5  # Número máximo de intentos
+            for attempt in range(max_retries):
+                try:
+                    async with session.post(
+                        f"{base_url}/openai/deployments/{model}/embeddings?api-version={version}",
+                        headers=headers,
+                        json=payload,
+                        timeout=30,
+                    ) as response:
+                        response.raise_for_status()
+                        data = await response.json()
 
+                        if "data" not in data:
+                            raise ValueError(f"Unexpected API response: {data}")
+
+                        embeddings = [item["embedding"] for item in data["data"]]
+                        if len(embeddings) != len(content):
+                            raise ValueError(
+                                f"Mismatch in embedding count: got {len(embeddings)}, expected {len(content)}"
+                            )
+
+                        return embeddings  # Si se obtiene respuesta correcta, terminamos aquí
+
+                except aiohttp.ClientError as e:
+                    if isinstance(e, aiohttp.ClientResponseError) and e.status == 429:
+                        if attempt < max_retries - 1:
+                            print(f"Rate limit exceeded. Retrying in {delay} seconds...")
+                            await asyncio.sleep(delay)  # Espera antes de reintentar
+                            delay *= 2  # Exponential backoff
+                            continue
+                        else:
+                            raise Exception("Max retries reached. Rate limit still exceeded.")
+
+                    raise Exception(f"API request failed: {str(e)}")
+
+                except Exception as e:
+                    msg.fail(f"Unexpected error: {type(e).__name__} - {str(e)}")
+                    raise
+
+            raise Exception("Failed to fetch embeddings after multiple attempts.")
+
+        """
+        
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
@@ -108,6 +153,7 @@ class AzureOpenAIEmbedder(Embedding):
             except Exception as e:
                 msg.fail(f"Unexpected error: {type(e).__name__} - {str(e)}")
                 raise
+        """
 
     @staticmethod
     def get_models(token: str, url: str) -> List[str]:
