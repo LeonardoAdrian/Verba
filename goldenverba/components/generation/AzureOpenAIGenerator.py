@@ -50,7 +50,76 @@ class AzureOpenAIGenerator(Generator):
             description="Set your model version if needed",
             values=[],
         )
+    async def metodo_previo(
+        self,
+        query: str,
+        config: dict,
+        context: str,
+        conversation: list[dict] = [],
+    ):
+        # Paso 1: Llamar a la API para obtener los datos necesarios
+        system_message = config.get("System Message").value
+        #print(system_message)
+        
+        model = config.get("Model", {"value": "gpt-35-turbo-16k"}).value
+        #print(model)
+        
+        azure_key = get_environment(
+            config, "API Key", "AZURE_OPENAI_API_KEY", "No Azure OpenAI API Key found"
+        )
+        #print(azure_key)
+        
+        azure_url = get_environment(
+            config, "URL", "AZURE_OPENAI_BASE_URL", "https://YOUR_RESOURCE_NAME.openai.azure.com"
+        )
+        #print(azure_url)
 
+        version = config.get("VERSION", {"value": "2024-08-01-preview"}).value
+        
+        messages = self.prepare_messages_query(query+', de la pregunta que te hice, solo dame el query SQL usando el esquema de la base de datos que te proporcioné. No incluyas explicaciones ni texto adicional, solo el query SQL.', context, conversation, system_message)
+        print(f'mensaje 1 {messages}')
+        
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": azure_key,
+        }
+        data = {
+            "messages": messages,
+            "model": model,
+            "stream": True,
+        }
+        
+        async with httpx.AsyncClient() as client:
+           async with client.stream(
+                "POST",
+                f"{azure_url}/openai/deployments/{model}/chat/completions?api-version={version}",
+                json=data,
+                headers=headers,
+                timeout=None,
+            ) as response:
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        if line.strip() == "data: [DONE]":
+                            break
+                        json_line = json.loads(line[6:])
+                        #print(json_line)
+                        if "choices" in json_line and len(json_line["choices"]) > 0:
+                            choice = json_line["choices"][0]
+                            if "delta" in choice and "content" in choice["delta"]:
+                                yield {
+                                    "message": choice["delta"]["content"],
+                                    "finish_reason": choice.get("finish_reason"),
+                                }
+                            elif "finish_reason" in choice:
+                                yield {
+                                    "message": "",
+                                    "finish_reason": choice["finish_reason"],
+                                }
+                    else: print(response)
+                    
+        
+
+   
     async def generate_stream(
         self,
         config: dict,
@@ -75,7 +144,11 @@ class AzureOpenAIGenerator(Generator):
         #print(azure_url)
 
         version = config.get("VERSION", {"value": "2024-08-01-preview"}).value
-        
+        async for result in self.metodo_previo(query, config, context, conversation):
+           
+            yield result
+        print(f'hola {result}')
+       
         messages = self.prepare_messages(query, context, conversation, system_message)
         #print(messages)
         
@@ -90,6 +163,8 @@ class AzureOpenAIGenerator(Generator):
         }
         print(f"Requesting to {azure_url}/openai/deployments/{model}/chat/completions?api-version={version}")
         print(f"Prompt: {data}")
+        
+        
         
         async with httpx.AsyncClient() as client2:
             async with client2.stream(
@@ -119,7 +194,27 @@ class AzureOpenAIGenerator(Generator):
                                 }
                     else: print(response)
                             
+    def prepare_messages_query(
+        self, query: str, context: str, conversation: list[dict], system_message: str
+    ) -> list[dict]:
+        messages = [
+            {
+                "role": "system",
+                "content": system_message,
+            }
+        ]
 
+        for message in conversation:
+            messages.append({"role": message.type, "content": message.content})
+
+        messages.append(
+            {
+                "role": "user",
+                "content": f"Answer this query: '{query}' with this provided context: {context}",
+            }
+        )
+
+        return messages
     def prepare_messages(
         self, query: str, context: str, conversation: list[dict], system_message: str
     ) -> list[dict]:
