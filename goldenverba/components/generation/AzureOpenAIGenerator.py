@@ -2,9 +2,11 @@ import os
 from dotenv import load_dotenv
 from goldenverba.components.interfaces import Generator
 from goldenverba.components.types import InputConfig
-from goldenverba.components.util import get_environment
+from goldenverba.components.util import get_environment, get_token
 import httpx
 import json
+from typing import List
+import requests
 
 load_dotenv()
 
@@ -20,29 +22,34 @@ class AzureOpenAIGenerator(Generator):
         self.description = "Using Azure OpenAI LLM models to generate answers to queries"
         self.context_window = 10000
 
-        models = ["gpt-4o", "gpt-3.5-turbo", "gpt-35-turbo-16k"]
+        
+
+        api_key = get_token("AZURE_OPENAI_API_KEY")
+        resource_name = get_token("AZURE_RESOURCE_NAME")
+        base_url = f"https://{resource_name}.openai.azure.com"
+        models = self.get_models(api_key, base_url)
 
         self.config["Model"] = InputConfig(
             type="dropdown",
             value=models[0],
-            description="Select an Azure OpenAI Model",
+            description="Select an Azure OpenAI Inference Model",
             values=models,
         )
 
-        #if os.getenv("AZURE_OPENAI_API_KEY") is None:
-        self.config["API Key"] = InputConfig(
-            type="password",
-            value="<ADD YOUR AZURE API KEY HERE>_",
-            description="You can set your Azure OpenAI API Key here or set it as environment variable `AZURE_OPENAI_API_KEY`",
-            values=[],
-        )
-        #if os.getenv("AZURE_OPENAI_BASE_URL") is None:
-        self.config["URL"] = InputConfig(
-            type="text",
-            value="https://YOUR_RESOURCE_NAME.openai.azure.com",
-            description="You can change the Base URL here if needed",
-            values=[],
-        )
+        if api_key is None:
+            self.config["API Key"] = InputConfig(
+                type="password",
+                value="<ADD YOUR AZURE API KEY HERE>",
+                description="You can set your Azure OpenAI API Key here or set it as environment variable `AZURE_OPENAI_API_KEY`",
+                values=[],
+            )
+        if resource_name is None:
+            self.config["RESOURCE NAME"] = InputConfig(
+                type="text",
+                value="",
+                description="You can set your Azure Resource Name here or set it as evironment variable `AZURE_RESOURCE_NAME`",
+                values=[],
+            )
 
         self.config["VERSION"] = InputConfig(
             type="text",
@@ -59,26 +66,20 @@ class AzureOpenAIGenerator(Generator):
         conversation: list[dict] = [],
     ):
         system_message = config.get("System Message").value
-        #print(system_message)
-        
         model = config.get("Model", {"value": "gpt-35-turbo-16k"}).value
-        #print(model)
-        
         azure_key = get_environment(
             config, "API Key", "AZURE_OPENAI_API_KEY", "No Azure OpenAI API Key found"
         )
-        #print(azure_key)
         
-        azure_url = get_environment(
-            config, "URL", "AZURE_OPENAI_BASE_URL", "https://YOUR_RESOURCE_NAME.openai.azure.com"
+        resource_name = get_environment(
+            config, "RESOURCE NAME", "AZURE_RESOURCE_NAME", "No Resource Name found"
         )
-        #print(azure_url)
-
+        if resource_name is None:
+            resource_name = config.get("RESOURCE NAME").value
+            
+        azure_url = f"https://{resource_name}.openai.azure.com"
         version = config.get("VERSION", {"value": "2024-08-01-preview"}).value
-        
         messages = self.prepare_messages(query, context, conversation, system_message)
-        #print(messages)
-        
         headers = {
             "Content-Type": "application/json",
             "api-key": azure_key,
@@ -141,3 +142,18 @@ class AzureOpenAIGenerator(Generator):
         )
 
         return messages
+    
+    @staticmethod
+    def get_models(token: str, url: str) -> List[str]:
+        api_version = "2024-10-21"
+        url = f"{url}/openai/models?api-version={api_version}"
+        headers = {"api-key": token} if token else {}
+        
+        default_models = ["gpt-4o", "gpt-3.5-turbo", "gpt-35-turbo-16k"]
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            return [model["id"] for model in data.get("data", []) if model["capabilities"].get("inference")]
+        except (requests.RequestException, KeyError):
+            return default_models
