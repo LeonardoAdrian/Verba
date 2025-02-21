@@ -89,8 +89,8 @@ class AzureOpenAIGenerator(Generator):
             "model": model,
             "stream": True,
         }
-        print(f"Requesting to {azure_url}/openai/deployments/{model}/chat/completions?api-version={version}")
-        print(f"Prompt: {data}")
+        print("AQUI ESTAMOS --->" + os.getcwd())
+        
         
         async with httpx.AsyncClient() as client2:
             async with client2.stream(
@@ -105,7 +105,6 @@ class AzureOpenAIGenerator(Generator):
                         if line.strip() == "data: [DONE]":
                             break
                         json_line = json.loads(line[6:])
-                        #print(json_line)
                         if "choices" in json_line and len(json_line["choices"]) > 0:
                             choice = json_line["choices"][0]
                             if "delta" in choice and "content" in choice["delta"]:
@@ -137,7 +136,7 @@ class AzureOpenAIGenerator(Generator):
         messages.append(
             {
                 "role": "user",
-                "content": f"Answer this query: '{query}' with this provided context: {context}",
+                "content": f"Answer this query: '{query}' with this provided context: {context}. Add these images to the answer /imgs/thumbnail.png, /imgs/api_screen.png",
             }
         )
 

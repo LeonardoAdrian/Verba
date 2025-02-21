@@ -799,3 +799,17 @@ async def delete_suggestion(payload: DeleteSuggestionPayload):
                 "status": 400,
             }
         )
+    
+from fastapi.responses import FileResponse
+
+UPLOAD_FOLDER = "imgs"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True) 
+
+@app.get("/imgs/{image_name}")
+async def get_image(image_name: str):
+    file_path = os.path.join(UPLOAD_FOLDER, image_name)
+    print(file_path)
+
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return {"error": "Imagen no encontrada"}
