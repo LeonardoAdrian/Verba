@@ -803,10 +803,10 @@ async def delete_suggestion(payload: DeleteSuggestionPayload):
     
 from fastapi.responses import FileResponse
 
-UPLOAD_FOLDER = "imgs"
+UPLOAD_FOLDER = "img"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True) 
 
-@app.get("/imgs/{image_name}")
+@app.get("/img/{image_name}")
 async def get_image(image_name: str):
     file_path = os.path.join(UPLOAD_FOLDER, image_name)
     print(file_path)

@@ -156,31 +156,76 @@ class BasicReader(Reader):
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
-            
-            # Extraer texto de la página
-            text = page.get_text("text")
-            if text.strip():  # Solo añadir si hay texto
-                full_content.append(f"Texto de la página {page_num + 1}:\n{text}")
+           
+            text_blocks = page.get_text("blocks")
+            valid_text_blocks = []
+            for block in text_blocks:
+                if len(block) >= 5:  
+                    x0, y0, x1, y1, text, *_ = block
+                    if text.strip(): 
+                        valid_text_blocks.append(block)
 
-            # Extraer imágenes de la página
             image_list = page.get_images(full=True)
+            images_with_coords = []
             for img_index, img in enumerate(image_list):
                 xref = img[0]
                 base_image = doc.extract_image(xref)
                 image_bytes = base_image["image"]
                 image_ext = base_image["ext"]
 
-                # Convertir la imagen a base64 para incrustarla
-                image_pil = Image.open(io.BytesIO(image_bytes))
-                if image_pil.mode == "RGBA":
-                    image_pil = image_pil.convert("RGB")
-                
-                unique_id = uuid.uuid4().hex  # Genera un UUID único
-                image_name = f"img/{unique_id}.{image_ext}"
-                image_pil.save(image_name)
-                
-                # Añadir la imagen al contenido
-                full_content.append(f"Imagen {img_index + 1} de la página {page_num + 1}:\n{image_name}")
+                try:
+                    image_rect = page.get_image_bbox(img)
+                    if image_rect:  
+                        images_with_coords.append({
+                            "index": img_index,
+                            "rect": image_rect,
+                            "bytes": image_bytes,
+                            "ext": image_ext
+                        })
+                except Exception as e:
+                    print(f"Error al obtener coordenadas de la imagen {img_index}: {e}")
+
+           
+            all_elements = []
+            for block in valid_text_blocks:
+                x0, y0, x1, y1, text, *_ = block
+                all_elements.append(("text", (y0, x0, y1, x1, text)))  
+
+            for img in images_with_coords:
+                rect = img["rect"]
+                all_elements.append(("image", (rect[1], rect[0], rect[3], rect[2], img)))  
+
+            
+            try:
+                all_elements.sort(key=lambda elem: (elem[1][0], elem[1][1]))  # Ordenar por (y0, x0)
+            except Exception as e:
+                print(f"Error al ordenar elementos: {e}")
+                all_elements = []  
+            try:
+                for elem_type, elem in all_elements:
+                    if elem_type == "text":
+                        _, _, _, _, text = elem
+                        if text.strip():  
+                            full_content.append(f" {text}")
+                    elif elem_type == "image":
+                        _, _, _, _, img = elem
+                        img_index = img["index"]
+                        image_bytes = img["bytes"]
+                        image_ext = img["ext"]
+
+                        image_pil = Image.open(io.BytesIO(image_bytes))
+
+                        if image_pil.mode == "RGBA":
+                            image_pil = image_pil.convert("RGB")
+
+                        unique_id = uuid.uuid4().hex 
+                        image_name = f"img/{unique_id}.{image_ext}" 
+
+                        image_pil.save(image_name)
+
+                        full_content.append(f"Imagen {page_num + 1}:\n{image_name}")
+            except Exception as e:
+                print(f"Error al procesar elementos: {e}")
 
         return "\n\n".join(full_content)
 

@@ -1,11 +1,11 @@
 import psycopg2
 from contextlib import contextmanager
-
-dbname = ''
-user = ''
-password = ''
-host = ''  # o la dirección IP de tu servidor PostgreSQL
-port = ''
+import os
+dbname = os.getenv('DB_NAME') 
+user = os.getenv('DB_USER')
+password = os.getenv('DB_PASSWORD')
+host = os.getenv('DB_HOST')
+port = os.getenv('DB_PORT')
 class DatabaseConnection:
     _instance = None
         

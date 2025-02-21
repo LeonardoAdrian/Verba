@@ -91,9 +91,14 @@ class AzureOpenAIGenerator(Generator):
         azure_key = get_environment(
             config, "API Key", "AZURE_OPENAI_API_KEY", "No Azure OpenAI API Key found"
         )
-        azure_url = get_environment(
-            config, "URL", "AZURE_OPENAI_BASE_URL", "https://YOUR_RESOURCE_NAME.openai.azure.com"
+        
+        resource_name = get_environment(
+            config, "RESOURCE NAME", "AZURE_RESOURCE_NAME", "No Resource Name found"
         )
+        if resource_name is None:
+            resource_name = config.get("RESOURCE NAME").value
+            
+        azure_url = f"https://{resource_name}.openai.azure.com"
         version = config.get("VERSION", {"value": "2024-08-01-preview"}).value
 
         # Preparar el mensaje para la API
@@ -181,6 +186,13 @@ class AzureOpenAIGenerator(Generator):
         azure_url = f"https://{resource_name}.openai.azure.com"
         version = config.get("VERSION", {"value": "2024-08-01-preview"}).value
                 
+        database = config.get("DATABASE").value
+        if database:
+            async for result in self.metodo_previo(query, config, context, conversation):
+                if result.get("finish_reason") == "stop" and result.get("message"):
+                    context = f"\n\nSegun la base de datos esta es la respuesta con los datos mas recientes que responde el query del usuario:\n{str(result['message'])}"
+                    print(f'Contexto actualizado: {context}') 
+                           
         messages = self.prepare_messages(query, context, conversation, system_message)
         headers = {
             "Content-Type": "application/json",
