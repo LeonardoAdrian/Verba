@@ -1,7 +1,12 @@
 import base64
 import json
 import io
-
+import fitz  # PyMuPDF
+from typing import List, Tuple
+from PIL import Image
+import base64
+import uuid
+import os
 from wasabi import msg
 
 from goldenverba.components.document import Document, create_document
@@ -27,6 +32,12 @@ except ImportError:
     msg.warn("python-docx not installed, DOCX functionality will be limited.")
     docx = None
 
+
+try:
+    from openpyxl import load_workbook
+except ImportError:
+    msg.warn("openpyxl not installed, XLSX functionality will be limited.")
+    load_workbook = None
 
 class BasicReader(Reader):
     """
@@ -93,6 +104,8 @@ class BasicReader(Reader):
                 file_content = await self.load_pdf_file(decoded_bytes)
             elif fileConfig.extension.lower() == "docx":
                 file_content = await self.load_docx_file(decoded_bytes)
+            elif fileConfig.extension.lower() == "xlsx":
+                file_content = await self.load_xlsx_file(decoded_bytes)
             elif fileConfig.extension.lower() in [
                 ext.lstrip(".") for ext in self.extension
             ]:
@@ -134,12 +147,42 @@ class BasicReader(Reader):
             raise ValueError(f"Invalid JSON in {fileConfig.filename}: {str(e)}")
 
     async def load_pdf_file(self, decoded_bytes: bytes) -> str:
-        """Load and extract text from a PDF file."""
-        if not PdfReader:
-            raise ImportError("pypdf is not installed. Cannot process PDF files.")
+        
+        if not os.path.exists("img"):
+            os.makedirs("img")
         pdf_bytes = io.BytesIO(decoded_bytes)
-        reader = PdfReader(pdf_bytes)
-        return "\n\n".join(page.extract_text() for page in reader.pages)
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        full_content = []
+
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            
+            # Extraer texto de la página
+            text = page.get_text("text")
+            if text.strip():  # Solo añadir si hay texto
+                full_content.append(f"Texto de la página {page_num + 1}:\n{text}")
+
+            # Extraer imágenes de la página
+            image_list = page.get_images(full=True)
+            for img_index, img in enumerate(image_list):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                image_ext = base_image["ext"]
+
+                # Convertir la imagen a base64 para incrustarla
+                image_pil = Image.open(io.BytesIO(image_bytes))
+                if image_pil.mode == "RGBA":
+                    image_pil = image_pil.convert("RGB")
+                
+                unique_id = uuid.uuid4().hex  # Genera un UUID único
+                image_name = f"img/{unique_id}.{image_ext}"
+                image_pil.save(image_name)
+                
+                # Añadir la imagen al contenido
+                full_content.append(f"Imagen {img_index + 1} de la página {page_num + 1}:\n{image_name}")
+
+        return "\n\n".join(full_content)
 
     async def load_docx_file(self, decoded_bytes: bytes) -> str:
         """Load and extract text from a DOCX file."""
@@ -150,3 +193,15 @@ class BasicReader(Reader):
         docx_bytes = io.BytesIO(decoded_bytes)
         reader = docx.Document(docx_bytes)
         return "\n".join(paragraph.text for paragraph in reader.paragraphs)
+
+    async def load_xlsx_file(self, decoded_bytes: bytes) -> str:
+        """Load and extract text from an XLSX file."""
+        if not load_workbook:
+            raise ImportError("openpyxl is not installed. Cannot process XLSX files.")
+        xlsx_bytes = io.BytesIO(decoded_bytes)
+        workbook = load_workbook(xlsx_bytes)
+        text_content = []
+        for sheet in workbook:
+            for row in sheet.iter_rows(values_only=True):
+                text_content.append("\t".join(str(cell) if cell is not None else "" for cell in row))
+        return "\n".join(text_content)

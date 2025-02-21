@@ -87,6 +87,7 @@ async def check_same_origin(request: Request, call_next):
     return await call_next(request)
 
     # Allow public access to /api/health
+    return await call_next(request)
     if request.url.path == "/api/health":
         return await call_next(request)
 
