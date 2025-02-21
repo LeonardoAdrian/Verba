@@ -63,21 +63,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         />
       </div>
 
-      <div
-        className={`${selectedDocument ? "md:w-[55vw] w-full flex" : "hidden md:flex md:w-[55vw]"}`}
-      >
-        <DocumentExplorer
-          addStatusMessage={addStatusMessage}
-          credentials={credentials}
-          production={production}
-          documentFilter={documentFilter}
-          setDocumentFilter={setDocumentFilter}
-          setSelectedDocument={setSelectedDocument}
-          selectedTheme={selectedTheme}
-          selectedDocument={selectedDocument}
-          chunkScores={selectedChunkScore}
-        />
-      </div>
+      
     </div>
   );
 };

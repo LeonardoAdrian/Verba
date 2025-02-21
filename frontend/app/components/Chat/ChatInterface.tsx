@@ -30,6 +30,7 @@ import {
   RAGConfig,
   Theme,
   DocumentFilter,
+  SuggestionsPayload,
 } from "@/app/types";
 
 import InfoComponent from "../Navigation/InfoComponent";
@@ -377,10 +378,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const suggestions = await fetchSuggestions(userInput, 3, credentials);
       if (suggestions) {
         setCurrentSuggestions(suggestions.suggestions);
-      }
+      } 
     }
   };
-
+  
   return (
     <div className="flex flex-col gap-2 w-full">
       {/* Header */}
@@ -595,9 +596,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 placeholder={
                   currentDatacount > 0
                     ? currentDatacount >= 100
-                      ? `Chatting with more than 100 documents...`
-                      : `Chatting with ${currentDatacount} documents...`
-                    : `No documents detected...`
+                      ? `Hazme una pregunta...`
+                      : `Tengo conocimiento sobre ${currentDatacount} documento(s)...`
+                    : `Aun no has cargado nada`
                 }
                 onKeyDown={handleKeyDown}
                 onCompositionStart={handleCompositionStart}

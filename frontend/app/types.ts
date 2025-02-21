@@ -489,7 +489,7 @@ export const LightTheme: Theme = {
     description: "Subtitle",
   },
   intro_message: {
-    text: "Welcome to Verba, your open-source RAG application!",
+    text: "Hola, soy un ChatBot de servicio. ¿En qué te puedo ayudar?",
     type: "text",
     description: "First Message",
   },
@@ -560,7 +560,7 @@ export const DarkTheme: Theme = {
   subtitle: { ...LightTheme.subtitle, text: "The Dark RAGtriever" },
   intro_message: {
     ...LightTheme.intro_message,
-    text: "Welcome to Verba, your open-source RAG application!",
+    text: "Hola, soy un ChatBot de servicio. ¿En qué te puedo ayudar?",
   },
   image: {
     ...LightTheme.image,
@@ -591,7 +591,7 @@ export const WCDTheme: Theme = {
   subtitle: { ...LightTheme.subtitle, text: "Weaviate Chatbot" },
   intro_message: {
     ...LightTheme.intro_message,
-    text: "Welcome to Verba, your open-source RAG application!",
+    text: "Hola, soy un ChatBot de servicio. ¿En qué te puedo ayudar?",
   },
   image: {
     ...LightTheme.image,
@@ -622,7 +622,7 @@ export const WeaviateTheme: Theme = {
   subtitle: { ...LightTheme.subtitle, text: "Weaviate Chatbot" },
   intro_message: {
     ...LightTheme.intro_message,
-    text: "Welcome to Verba, your open-source RAG application!",
+    text: "Hola, soy un ChatBot de servicio. ¿En qué te puedo ayudar?",
   },
   image: {
     ...LightTheme.image,
