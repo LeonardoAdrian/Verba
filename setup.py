@@ -46,6 +46,10 @@ setup(
         "beautifulsoup4==4.12.3",
         "langdetect==1.0.9",
         "openai==1.52.1",
+        "psycopg2-binary>=2.9.6",
+        "openpyxl==3.1.2",
+        "PyMuPDF==1.23.25",
+        "Pillow==10.2.0",
     ],
     extras_require={
         "dev": ["pytest", "wheel", "twine", "black>=23.7.0", "setuptools"],

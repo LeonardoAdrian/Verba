@@ -82,6 +82,7 @@ app.add_middleware(
 @app.middleware("http")
 async def check_same_origin(request: Request, call_next):
     # Allow public access to /api/health
+    return await call_next(request)
     if request.url.path == "/api/health":
         return await call_next(request)
 
